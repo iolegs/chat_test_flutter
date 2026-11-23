@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import '../components/message_bubble.dart';
 import '../cubit/chat_cubit.dart';
 import '../cubit/chat_state.dart';
+import '../extensions/date_time_extensions.dart';
 import 'message_status_widget.dart';
 
 /// Виджет списка сообщений чата.
@@ -26,9 +27,7 @@ class const MessageListWidget({super.key}) extends StatelessWidget {
 
               return MessageBubble(
                 text: message.text,
-                time:
-                    '${message.createdAt.hour.toString().padLeft(2, '0')}:'
-                    '${message.createdAt.minute.toString().padLeft(2, '0')}',
+                time: message.createdAt.formattedTime,
                 isMe: isMe,
                 trailing: MessageStatusWidget(message: message),
               );
