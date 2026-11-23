@@ -1,14 +1,10 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:material_ui/material_ui.dart';
 
-import '../../domain/entities/chat_message.dart';
-import '../../domain/enums/message_status.dart';
 import '../components/message_bubble.dart';
-import '../components/message_failed_indicator.dart';
-import '../components/message_pending_indicator.dart';
-import '../components/message_sent_indicator.dart';
 import '../cubit/chat_cubit.dart';
 import '../cubit/chat_state.dart';
+import 'message_status_widget.dart';
 
 /// Виджет списка сообщений чата.
 class const MessageListWidget({super.key}) extends StatelessWidget {
@@ -34,25 +30,12 @@ class const MessageListWidget({super.key}) extends StatelessWidget {
                     '${message.createdAt.hour.toString().padLeft(2, '0')}:'
                     '${message.createdAt.minute.toString().padLeft(2, '0')}',
                 isMe: isMe,
-                trailing: _buildTrailing(message, cubit, isMe),
+                trailing: MessageStatusWidget(message: message),
               );
             },
           ),
         };
       },
     );
-  }
-
-  /// Выбирает нужный тупой компонент статуса в зависимости от доменного статуса.
-  Widget? _buildTrailing(ChatMessage message, ChatCubit cubit, bool isMe) {
-    if (!isMe) return null;
-
-    return switch (message.status) {
-      MessageStatus.pending => const MessagePendingIndicator(),
-      MessageStatus.sent => const MessageSentIndicator(),
-      MessageStatus.failed => MessageFailedIndicator(
-        onRetry: () => cubit.retryMessage(message.clientId),
-      ),
-    };
   }
 }
