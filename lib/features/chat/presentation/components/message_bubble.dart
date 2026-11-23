@@ -12,9 +12,14 @@ class const MessageBubble({
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    // Ограничиваем ширину пузыря ~78% экрана, чтобы длинные сообщения
+    // не прилипали к противоположному краю.
+    final maxBubbleWidth = MediaQuery.sizeOf(context).width * 0.78;
+
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
+        constraints: BoxConstraints(maxWidth: maxBubbleWidth),
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
