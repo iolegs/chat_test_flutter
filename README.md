@@ -1,17 +1,165 @@
-# chat_test
+# Chat Test
 
-A new Flutter project.
+Тестовое задание на позицию Flutter-разработчика (Middle+).
+Реализован экран чата `room1` с историей сообщений, отправкой через локальный
+асинхронный транспорт и ручным повтором после ошибки.
 
-## Getting Started
+## Окружение
 
-This project is a starting point for a Flutter application.
+- **Flutter**: 3.50.1 (stable)
+- **Dart**: 3.14.0
+- **Платформа**: Android (эмулятор / физическое устройство)
+- **Состояние менеджмент**: `flutter_bloc` (Cubit) + `equatable`
+- **Генерация идентификаторов**: `uuid`
 
-A few resources to get you started if this is your first Flutter project:
+## Команды
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+```bash
+# Установка зависимостей
+flutter pub get
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+# Запуск на подключённом устройстве / эмуляторе
+flutter run
+
+# Статический анализ (ожидается: No issues found!)
+flutter analyze
+
+# Тесты (ожидается: All tests passed!)
+flutter test
+```
+
+### Часть 2. Статус заданий и архитектура
+
+Скопируйте и добавьте ниже:
+
+## Статус заданий F1–F4
+
+| Задание | Статус | Комментарий |
+|---|---|---|
+| **F1.** Экран с историей, полем ввода и кнопкой | ✅ Выполнено полностью | 7 предзаполненных сообщений, пустые/пробельные не отправляются |
+| **F2.** Отправка со статусами pending/failed/sent | ✅ Выполнено полностью | Первая попытка всегда завершается ошибкой через `FakeChatRemoteDataSource`, UI остаётся отзывчивым |
+| **F3.** Ручной повтор с сохранением clientId | ✅ Выполнено полностью | Обновляется та же запись, дубликатов нет, повтор заблокирован во время `pending` |
+| **F4.** Вынос логики из виджетов, ручная проверка | ✅ Выполнено полностью | Логика в `ChatCubit` и `ChatRepository`, виджеты разделены на умные/тупые |
+| **F5–F7.** Разбор на встрече | ⏳ Не реализовано в коде | По условиям задания разбираются на личной встрече |
+
+
+## Архитектура
+
+Feature-based clean architecture:
+
+```text
+lib/
+├── main.dart                                       # Composition root: DI и запуск
+├── app.dart                                        # MyApp: MaterialApp и стартовый экран
+└── features/
+└── chat/
+├── domain/                                 # Бизнес-логика (без Flutter)
+│   ├── entities/
+│   │   ├── chat_message.dart               # Сущность сообщения
+│   │   ├── chat_info.dart                  # Метаданные чата
+│   │   └── user.dart                       # Пользователь
+│   ├── enums/
+│   │   └── message_status.dart             # pending / sent / failed
+│   └── repositories/
+│       └── chat_repository.dart            # Контракт репозитория
+├── data/                                   # Реализация контрактов
+│   ├── datasources/
+│   │   ├── contracts/
+│   │   │   └── chat_data_source.dart       # Контракт источника данных
+│   │   ├── implementations/
+│   │   │   └── chat_fake_remote_data_source.dart  # Фейковый транспорт
+│   │   └── fake_chat_fixtures.dart         # Seed-данные и участники чата
+│   └── repositories/
+│       └── chat_repository_impl.dart       # Реализация репозитория
+└── presentation/                           # UI и управление состоянием
+├── cubit/
+│   ├── chat_cubit.dart                 # Координатор сценариев
+│   └── chat_state.dart                 # Sealed-классы состояний
+├── components/                         # Тупые виджеты (без домена)
+│   ├── message_bubble.dart
+│   ├── message_composer.dart
+│   ├── message_pending_indicator.dart
+│   ├── message_sent_indicator.dart
+│   └── message_failed_indicator.dart
+├── widgets/                            # Умные виджеты (подписаны на Cubit)
+│   ├── message_list_widget.dart
+│   └── message_composer_widget.dart
+└── screens/
+└── chat_screen.dart                # Экран чата
+```
+
+**Направление зависимостей**: `presentation → domain ← data`.
+Domain не импортирует Flutter и не знает о реализации.
+
+
+## Принятые решения
+
+### Состояние и сценарии
+- **`ChatCubit` (Cubit, не Bloc)** — для нашей задачи (несколько действий, простые переходы) Cubit проще Bloc и не требует boilerplate с событиями.
+- **`sealed class ChatState`** — компилятор гарантирует, что UI обработал все состояния (исчерпывающий `switch`). Невозможные комбинации (loading + error одновременно) невыразимы.
+- **`isClosed` перед `emit`** — защита от `Bad state: Cannot emit new states after calling close`, если пользователь закрыл экран во время асинхронной операции.
+- **Оптимистичное обновление** — сообщение сразу добавляется со статусом `pending`, без ожидания ответа транспорта.
+
+### Retry-семантика
+- **`clientId` генерируется один раз** при создании сообщения (`uuid.v4()`) и не меняется при повторах.
+- **Запись обновляется по `clientId`, а не пересоздаётся** — гарантия отсутствия дубликатов на уровне `ChatCubit`.
+- **Счётчик попыток по `clientId`** хранится в `FakeChatRemoteDataSource` (по ТЗ). Первая попытка всегда `throw`, повтор — успех.
+- **Повтор заблокирован во время `pending`** — проверка `message.status != MessageStatus.failed` в `retryMessage`.
+
+### Слои и зависимости
+- **Один `ChatRepository` на всё приложение**, `chatId` передаётся в методы. Создание отдельного репозитория на каждый чат оправдано только при управлении пулом живых сессий (стриминг, звонки) — в нашем случае это лишний жизненный цикл.
+- **`RepositoryProvider`** инжектит репозиторий в дерево виджетов; `ChatScreen` достаёт его из `context` и владеет `ChatCubit` (Cubit умирает вместе с экраном).
+- **`currentUser` и `chatId`** передаются в `ChatScreen` как route-параметры. Это совместимо с будущим deep-link/push, где известен только `chatId`.
+- **`ChatInfo`** содержит `peer` (`User`) и опциональный `title`. Логика выбора заголовка для AppBar (`title ?? peer.name`) — в presentation-слое, где ей и место.
+
+
+## Принятые решения
+
+### Состояние и сценарии
+- **`ChatCubit` (Cubit, не Bloc)** — для нашей задачи (несколько действий, простые переходы) Cubit проще Bloc и не требует boilerplate с событиями.
+- **`sealed class ChatState`** — компилятор гарантирует, что UI обработал все состояния (исчерпывающий `switch`). Невозможные комбинации (loading + error одновременно) невыразимы.
+- **`isClosed` перед `emit`** — защита от `Bad state: Cannot emit new states after calling close`, если пользователь закрыл экран во время асинхронной операции.
+- **Оптимистичное обновление** — сообщение сразу добавляется со статусом `pending`, без ожидания ответа транспорта.
+
+### Retry-семантика
+- **`clientId` генерируется один раз** при создании сообщения (`uuid.v4()`) и не меняется при повторах.
+- **Запись обновляется по `clientId`, а не пересоздаётся** — гарантия отсутствия дубликатов на уровне `ChatCubit`.
+- **Счётчик попыток по `clientId`** хранится в `FakeChatRemoteDataSource` (по ТЗ). Первая попытка всегда `throw`, повтор — успех.
+- **Повтор заблокирован во время `pending`** — проверка `message.status != MessageStatus.failed` в `retryMessage`.
+
+### Слои и зависимости
+- **Один `ChatRepository` на всё приложение**, `chatId` передаётся в методы. Создание отдельного репозитория на каждый чат оправдано только при управлении пулом живых сессий (стриминг, звонки) — в нашем случае это лишний жизненный цикл.
+- **`RepositoryProvider`** инжектит репозиторий в дерево виджетов; `ChatScreen` достаёт его из `context` и владеет `ChatCubit` (Cubit умирает вместе с экраном).
+- **`currentUser` и `chatId`** передаются в `ChatScreen` как route-параметры. Это совместимо с будущим deep-link/push, где известен только `chatId`.
+- **`ChatInfo`** содержит `peer` (`User`) и опциональный `title`. Логика выбора заголовка для AppBar (`title ?? peer.name`) — в presentation-слое, где ей и место.
+
+### UI
+- **Smart/Dumb Components**:
+    - `components/` — тупые виджеты: принимают только примитивы и `Widget?`, не знают о Cubit/домене (`MessageBubble`, `MessageComposer`, `Message*Indicator`).
+    - `widgets/` — умные: подписаны на `ChatCubit`, мапят доменные модели в аргументы тупых (`MessageListWidget`, `MessageComposerWidget`).
+- **Слот `trailing` в `MessageBubble`** — вместо зашитого рендера статуса. Паттерн из `ListTile`, `AppBar`. Позволяет менять индикатор статуса, не трогая пузырь.
+- **Три dumb-виджета статусов** (`MessagePendingIndicator`, `MessageSentIndicator`, `MessageFailedIndicator`) вместо UI-enum. Избегаем дублирования доменного `MessageStatus` в UI-слое.
+- **`BlocSelector` в AppBar** — AppBar не перерисовывается при каждом новом сообщении, только при смене заголовка.
+
+### Данные
+- **`FakeChatFixtures`** — единый источник тестовых данных (chatId, участники, история). Иначе `user_oleg` дублировался бы в seed и в `currentUser`, и при расхождении свои сообщения отрисовывались бы как чужие (silent bug).
+- **Источник истины** — `ChatRepositoryImpl` (хранит историю). `ChatCubit` держит локальную копию в стейте для UI и обновляет её через `copyWith` по `clientId`.
+
+## Ограничения
+
+- **Только Android** (по ТЗ достаточно одной платформы).
+- **Хранение в памяти** — без локальной БД, офлайн-очереди и восстановления после перезапуска.
+- **Нет реального транспорта** — `FakeChatRemoteDataSource` с задержкой 700 мс.
+- **Push, звонки, ACK/echo, синхронизация** — не реализованы (F5–F7 — разбор на встрече).
+- **Один чат** (`room1`) — списка чатов, навигации между ними нет (по ТЗ).
+- **Нет Use Cases** — для нашего объёма логики это оверинжиниринг; `ChatCubit` напрямую координирует сценарии через `ChatRepository`.
+- **Нет DTO и мапперов** — `FakeChatRemoteDataSource` возвращает доменные модели напрямую; при переходе на реальный API добавятся DTO в data-слое.
+- **Автотесты**: один smoke-тест (проверяет запуск `ChatScreen` и загрузку истории). Полное покрытие сценариев F1–F4 — вне рамок задания.
+
+## Ручная проверка сценария F1–F4
+
+1. Запустить `flutter run`.
+2. **F1**: видны 7 сообщений, поле ввода и кнопка отправки. Отправка пустого/пробельного текста — ничего не происходит.
+3. **F2**: ввести текст и отправить → сообщение сразу появляется со спиннером (`pending`) → через ~700 мс становится красным с кнопкой «Повторить» (`failed`). Во время ожидания UI отзывчив (можно скроллить, печатать).
+4. **F3**: нажать «Повторить» → та же запись получает `pending` → через ~700 мс — галочка (`sent`). Дубликатов в списке нет.
+5. **F4**: пузыри «своих» сообщений выровнены вправо, «чужих» — влево. AppBar показывает «Алексей».
