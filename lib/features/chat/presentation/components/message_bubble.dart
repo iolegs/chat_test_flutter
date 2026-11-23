@@ -27,7 +27,7 @@ class const MessageBubble({
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.end,
           spacing: 4,
           children: [
             Text(
