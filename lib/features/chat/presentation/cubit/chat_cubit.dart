@@ -22,11 +22,19 @@ final class ChatCubit({
     emit(ChatState.loading());
 
     try {
-      final messages = await _repository.getMessages(chatId);
+      final (messages, chatInfo) = await (
+        _repository.getMessages(chatId),
+        _repository.getChatInfo(chatId),
+      ).wait;
 
       if (isClosed) return;
 
-      emit(ChatState.loaded(messages: messages));
+      emit(
+        ChatState.loaded(
+          messages: messages,
+          chatInfo: chatInfo,
+        ),
+      );
     } catch (error) {
       if (isClosed) return;
 

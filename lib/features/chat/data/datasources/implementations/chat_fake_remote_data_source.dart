@@ -1,6 +1,7 @@
 import 'package:chat_test/features/chat/domain/entities/chat_message.dart';
 import 'package:chat_test/features/chat/domain/enums/message_status.dart';
 
+import '../../../domain/entities/chat_info.dart';
 import '../contracts/chat_data_source.dart';
 import 'fake_chat_fixtures.dart';
 
@@ -13,6 +14,14 @@ final class FakeChatRemoteDataSource() implements ChatDataSource {
   Future<List<ChatMessage>> getMessages(String chatId) async {
     return List.unmodifiable(
       _messages.where((message) => message.chatId == chatId),
+    );
+  }
+
+  @override
+  Future<ChatInfo> getChatInfo(String chatId) async {
+    return ChatInfo(
+      id: chatId,
+      peer: FakeChatFixtures.peerUser,
     );
   }
 

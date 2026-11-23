@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../domain/entities/user.dart';
 import '../../domain/repositories/chat_repository.dart';
+import '../cubit/chat_state.dart';
 import '../widgets/message_composer_widget.dart';
 import '../widgets/message_list_widget.dart';
 
@@ -21,7 +22,17 @@ class const ChatScreen({
         currentUser: currentUser,
       )..loadMessages(),
       child: Scaffold(
-        appBar: AppBar(title: Text(chatId)),
+        appBar: AppBar(
+          title: BlocSelector<ChatCubit, ChatState, String>(
+            selector: (state) => switch (state) {
+              // Если загружено — показываем title (если задан) или имя собеседника
+              ChatLoaded(:final chatInfo) => chatInfo.title ?? chatInfo.peer.name,
+              // Пока грузится или ошибка — показываем ID чата как fallback
+              _ => chatId,
+            },
+            builder: (context, title) => Text(title),
+          ),
+        ),
         body: const Column(
           children: [
             Expanded(child: MessageListWidget()),

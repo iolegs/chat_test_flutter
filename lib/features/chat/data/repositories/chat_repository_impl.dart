@@ -1,3 +1,4 @@
+import 'package:chat_test/features/chat/domain/entities/chat_info.dart';
 import 'package:chat_test/features/chat/domain/entities/chat_message.dart';
 import 'package:chat_test/features/chat/domain/repositories/chat_repository.dart';
 
@@ -15,5 +16,10 @@ final class ChatRepositoryImpl({
   @override
   Future<void> sendMessage(ChatMessage message) {
     return dataSource.sendMessage(message);
+  }
+
+  @override
+  Future<ChatInfo> getChatInfo(String chatId) {
+    return dataSource.getChatInfo(chatId);
   }
 }
